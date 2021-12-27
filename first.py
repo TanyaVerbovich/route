@@ -36,6 +36,9 @@ def get_db():
 Message = namedtuple('Message', 'text tag')
 messages = []
 
+Username = namedtuple('Username', 'password')
+users = []
+
 
 @app.teardown_appcontext
 def close_db(error):
@@ -53,6 +56,20 @@ def index():
 @app.route('/main', methods=['GET'])
 def main():
     return render_template('main.html', messages=messages)
+
+
+@app.route('/signin', methods=['GET'])
+def signin():
+    return  render_template('signin.html', users=users)
+
+
+@app.route('/add username', methods=['POST'])
+def add_username():
+    username = request.form['username']
+    password = request.form['password']
+    messages.append(Message(username, password))
+
+    return redirect(url_for('signin'))
 
 
 @app.route('/add message', methods=['POST'])
