@@ -37,19 +37,13 @@ def hashPassword(password):
     return hash_object.hexdigest()
 
 
-@app.teardown_appcontext
-def close_db(error):
-    if hasattr(g, 'link_db'):
-        g.link_db.close()
-
-
-@app.route('/', methods=['GET'])
+@app.route('/', methods=['POST', 'GET'])
 #page index
 def index():
     return render_template('index.html')
 
 
-@app.route('/main', methods=['GET'])
+@app.route('/main', methods=['POST', 'GET'])
 #main page
 def main():
     return render_template('main.html')
@@ -58,6 +52,16 @@ def main():
 @app.route('/signin', methods=['POST', 'GET'])
 #signin page
 def signin():
+    if request.method == "POST":
+        curruser = User.query.filter_by(username=request.form['username']).first()
+        if curruser is None:
+            flash('there is no such user')
+        else:
+            if curruser.password == hashPassword(request.form['password']):
+                return redirect(url_for('main'))
+            else:
+                flash('incorrect data', category='error')
+
     return  render_template('signin.html')
 
 
@@ -66,19 +70,24 @@ def signin():
 def register():
     if request.method == "POST":
         # requirements for password: not less than 8 symbols, should include a-z 0-9 special symbol
-        if re.match(r'^.*(?=.{6,})(?=.*[a-z])(?=.*[!@#$%^&*?_]).*$', request.form['password']):
-            try:
-                u = User(username=request.form['username'], password=hashPassword(request.form['password']),
-                         email=request.form['email'], role=request.form['role'], start_date=date.today())
-                db.session.add(u)
-                db.session.flush()
-                db.session.commit()
-                flash('added successfully', category='success')
-            except:
-                db.session.rollback()
-                flash('error while adding into database', category='error')
+        curuser = User.query.filter_by(username=request.form['username']).first()
+        curemail = User.query.filter_by(username=request.form['email']).first()
+        if curuser is None and curemail is None:
+            if re.match(r'^.*(?=.{6,})(?=.*[a-z])(?=.*[!@#$%^&*?_]).*$', request.form['password']):
+                try:
+                    u = User(username=request.form['username'], password=hashPassword(request.form['password']),
+                             email=request.form['email'], role=request.form['role'], start_date=date.today())
+                    db.session.add(u)
+                    db.session.flush()
+                    db.session.commit()
+                    flash('added successfully', category='success')
+                except:
+                    db.session.rollback()
+                    flash('error while adding into database', category='error')
+            else:
+                flash('your password is incorrect', category='error')
         else:
-            flash('your password is incorrect', category='error')
+            flash('user is not unique', category='error')
 
     return render_template('register.html')
 
