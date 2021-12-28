@@ -1,5 +1,7 @@
-create table if not exists maimenu (
+create table if not exists users (
 id integer primary key AUTOINCREMENT,
-title text not null,
-url text not null
+username text not null,
+password text not null,
+email text not null,
+role text not null
 );

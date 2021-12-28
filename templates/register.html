@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Register</title>
+    <link type="text/css" href="{{ url_for('static', filename='css/signin.css')}}" rel="stylesheet"/>
+</head>
+<body>
+<div class="login-page">
+    <div class="form">
+        <form class="login-form" action="{{url_for('register')}}" method="post">
+            <input type="text" name="username" placeholder="name"/>
+            <input type="password" name="password" placeholder="password"/>
+            <input type="text" name="email" placeholder="email address"/>
+            <select name="role">
+                <option value="" selected disabled hidden>role</option>
+                <option value="1">user</option>
+                <option value="2">customer</option>
+                <option value="3">driver</option>
+                <option value="4">admin</option>
+            </select>
+            <button>create</button>
+            <p class="message">Already registered? <a href="{{ url_for('signin') }}">Sign In</a></p>
+            {% for cat, msg in get_flashed_messages(True) %}
+            <div class="flash">{{msg}}</div>
+            {% endfor %}
+        </form>
+    </div>
+</div>
+</body>
+</html>
