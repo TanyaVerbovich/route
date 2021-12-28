@@ -1,45 +1,40 @@
-from collections import namedtuple
-from flask import Flask, render_template, redirect, url_for, request, g, flash
+from flask import Flask, render_template, redirect, url_for, request, g, flash, session
+from flask_session import Session
 import sqlite3
 import os
 import re
 import hashlib
-from FDataBase import FDataBase
+from flask_sqlalchemy import SQLAlchemy
+from datetime import date, datetime
 
-DATABASE = '/tmp/flsite.db'
-SECRET_KEY = '6nT9Nm6nT9Nm6nT9Nm'
 
 app = Flask(__name__)
-app.config.from_object(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///route.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SECRET_KEY'] = 'super secret key'
+sess = Session()
 
 
-app.config.update(dict(DATABASE=os.path.join(app.root_path, 'flsite.db')))
+db = SQLAlchemy(app)
+
+
+class User(db.Model):
+    __tablename__ = 'users'
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(100), nullable=False)
+    password = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(100), nullable=False)
+    role = db.Column(db.String(10), nullable=False)
+    start_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    def __repr__(self):
+        return '<User %r>' % self.username
 
 
 def hashPassword(password):
     hash_object = hashlib.md5(password.encode())
     return hash_object.hexdigest()
-
-def connect_db():
-#connect to database
-    conn = sqlite3.connect(app.config['DATABASE'])
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
-def create_db():
-#create database via request into python console
-    db = connect_db()
-    with app.open_resource('sq_db.sql', mode='r') as f:
-        db.cursor().executescript(f.read())
-    db.commit()
-    db.close()
-
-
-def get_db():
-    if not hasattr(g, 'link_db'):
-        g.link_db = connect_db()
-    return g.link_db
 
 
 @app.teardown_appcontext
@@ -51,9 +46,7 @@ def close_db(error):
 @app.route('/', methods=['GET'])
 #page index
 def index():
-    db = get_db()
-    dbase = FDataBase(db)
-    return render_template('index.html', menu=dbase.getMenu())
+    return render_template('index.html')
 
 
 @app.route('/main', methods=['GET'])
@@ -62,7 +55,7 @@ def main():
     return render_template('main.html')
 
 
-@app.route('/signin', methods=['GET'])
+@app.route('/signin', methods=['POST', 'GET'])
 #signin page
 def signin():
     return  render_template('signin.html')
@@ -71,45 +64,23 @@ def signin():
 @app.route('/register', methods=['POST', 'GET'])
 #register page
 def register():
-    db = get_db()
-    dbase = FDataBase(db)
-
     if request.method == "POST":
         # requirements for password: not less than 8 symbols, should include a-z 0-9 special symbol
         if re.match(r'^.*(?=.{6,})(?=.*[a-z])(?=.*[!@#$%^&*?_]).*$', request.form['password']):
-            res = dbase.addUser(request.form['username'], hashPassword(request.form['password']), request.form['email'],
-                                request.form['role'])
-            if not res:
-                flash('error while adding user', category='error')
-            else:
+            try:
+                u = User(username=request.form['username'], password=hashPassword(request.form['password']),
+                         email=request.form['email'], role=request.form['role'], start_date=date.today())
+                db.session.add(u)
+                db.session.flush()
+                db.session.commit()
                 flash('added successfully', category='success')
+            except:
+                db.session.rollback()
+                flash('error while adding into database', category='error')
         else:
             flash('your password is incorrect', category='error')
 
-    return render_template('register.html', menu=dbase.getMenu())
-
-
-
-
-@app.route('/adduser', methods=['POST', 'GET'])
-#adding user into database table users
-def addUser():
-    db = get_db()
-    dbase = FDataBase(db)
-
-    if request.method == "POST":
-        # requirements for password: not less than 8 symbols, should include A-Z a-z 0-9 special symbol
-        if re.match(r'[A-Za-z0-9@#$%^&+=]{8,}', request.form['password']):
-            res = dbase.addUser(request.form['username'], hashPassword(request.form['password']), request.form['email'],
-                                request.form['role'])
-            if not res:
-                flash('error while adding user', category='error')
-            else:
-                flash('added successfully', category='success')
-        else:
-            flash('your password is incorrect', category='error')
-
-    return render_template('add_user.html', menu=dbase.getMenu())
+    return render_template('register.html')
 
 
 if __name__ == "__main__":
